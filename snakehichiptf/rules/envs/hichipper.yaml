@@ -1,0 +1,9 @@
+name: hichipper
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - hichipper=0.7.7
+  - bedtools
+  - bioconductor-genomicranges
+  - r-data.table

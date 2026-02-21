@@ -1,0 +1,12 @@
+name: 
+  genomefeature
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - pandas
+  - biopython
+  - ucsc-bigwigaverageoverbed
+  - ucsc-wigtobigwig
+  - ucsc-bigwigtobedgraph
+  

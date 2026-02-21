@@ -1,0 +1,377 @@
+#!/usr/bin/env python
+
+"""
+split bam file into .shrt.bam and .long.bam
+Created by Rongxin Fang
+Modified by Armen Abnousi
+"""
+import sys
+import pysam 
+import collections
+from itertools import islice
+from itertools import combinations
+import pybedtools
+import time
+import os
+import subprocess
+import glob
+import logger
+import random
+
+def split_main(input_bam, outdir, prefix, cutoff, per_chr, generate_hic, downsample_pairs, chip_peaks):
+	downsample_pairs=int(downsample_pairs)
+	#sys.stdout = logger.Logger(outdir + "/" + prefix + ".feather.log")
+	print(time.ctime() + " starting the splitting operation")
+	flagstat_filename = glob.glob(outdir + "/*.rmdup.flagstat")
+	if chip_peaks:
+		chip_peaks = glob.glob(chip_peaks)
+	else:
+		chip_peaks = ""
+	if len(flagstat_filename) > 0 and len(chip_peaks) > 0:
+		flagstat_filename = flagstat_filename[0]
+		chip_peaks = chip_peaks[0]
+		print(time.ctime() + " QC metrics will be computed from: " + chip_peaks + " and " + flagstat_filename)
+	elif len(flagstat_filename) > 0:
+		chip_peaks = False
+		flagstat_filename = flagstat_filename[0]
+		print(time.ctime() + " WARNING: no ChIP peaks file found to compute the on-chip ratio")
+		print(time.ctime() + " QC metrics will be computed from: " + flagstat_filename)
+	elif len(chip_peaks) > 0:
+		if len(flagstat_filename) == 0:
+			flagstat_filename = input_bam + ".rmdup.flagstat"
+			print(time.ctime() + " calling samtools flagstat on provided bam file")
+			proc = subprocess.Popen("samtools flagstat " + input_bam + " > " + flagstat_filename, shell = True)
+			proc.communicate()
+		chip_peaks = chip_peaks[0]
+		print(time.ctime() + " QC metric (on-chip ratio) will be computed from: " + chip_peaks + " and " + flagstat_filename)
+	samfile = pysam.AlignmentFile(input_bam, "rb")
+	filename_prefix = outdir + "/" + prefix
+	temp_filename_prefix = outdir + "/tempfiles/" + prefix
+	chr_list = extract_chr_list(samfile.header)
+	chrname_lengths = list(map(len, chr_list))
+	rename_chrs = True if (min(chrname_lengths) == 1) else False
+	if rename_chrs:
+		chr_list =["chr" + chrom for chrom in chr_list]
+		s2 = pysam.AlignmentFile(temp_filename_prefix + "_sam_header", "wb", reference_names = chr_list, reference_lengths = samfile.header.lengths)
+		new_header = s2.header
+	else:
+		new_header = samfile.header
+	autosomal_chrs = [chr_name for chr_name in chr_list if ((chr_name.find('_') == -1 and chr_name.find('.') == -1 and chr_name[3].isdigit()) or chr_name == "chrX" or chr_name == "chrY")]
+	potential_chrs = ['chr' + str(x) for x in list(range(1,23)) + ['X', 'Y']]
+	autosomal_chrs = [x for x in autosomal_chrs if x in potential_chrs]
+	chr_list = autosomal_chrs
+	if not is_sorted_queryname(samfile.header):
+		sys.exit("Error: bam needs to be sorted by read name")
+	filename_prefix = outdir + "/" + prefix
+	temp_filename_prefix = outdir + "/tempfiles/" + prefix
+	fname_output_shrt = temp_filename_prefix + ".shrt.bam"
+	#fname_output_shrt_genomewide =  temp_filename_prefix + ".shrt.genomewide.bam"
+	if (per_chr):
+		short_bed_files, long_intra_bam_files, long_intra_bam_filenames, long_intra_bedpe_files = generate_per_chrom_files(chr_list, 
+									filename_prefix, temp_filename_prefix, new_header)
+	fname_output_long_intra = temp_filename_prefix + ".long.intra.bam"
+	fout_long_intra = pysam.AlignmentFile(fname_output_long_intra, "wb", header = new_header)
+	fname_long_intra_bedpe = filename_prefix + ".long.intra.bedpe"
+	fname_output_long_inter = temp_filename_prefix + ".long.inter.bam"
+	fname_output_shrt_inter = temp_filename_prefix + ".shrt.inter.bam"
+	fname_shrt_bed = filename_prefix + ".shrt.vip.bed"
+	fout_long_inter = pysam.AlignmentFile(fname_output_long_inter, "wb", header = new_header)
+	fout_shrt_inter = pysam.AlignmentFile(fname_output_shrt_inter, "wb", header = new_header)
+	fout_shrt = pysam.AlignmentFile(fname_output_shrt, "wb", header = new_header)
+	fout_shrt_bed = open(fname_shrt_bed, "w")
+	hic_chr_list = autosomal_chrs
+	if (generate_hic):
+		hic_tsv_files = open_hic_files(hic_chr_list, outdir, prefix)
+	# Count total reads without an index
+	print(time.ctime() + " counting total reads in BAM file")
+	total_reads = 0
+	for _ in samfile:
+		total_reads += 1
+	samfile.reset()  # Reset file pointer to start for processing
+	total_pairs = total_reads // 2
+	print(time.ctime() + f" total reads: {total_reads}, total pairs: {total_pairs}")
+	# Downsampling setup
+	if downsample_pairs > 0:
+		print(time.ctime() + f" downsampling to {downsample_pairs} pairs")
+		random.seed(1000)
+		if total_pairs <= downsample_pairs:
+			print(time.ctime() + f" total pairs ({total_pairs}) <= target ({downsample_pairs}), using all reads")
+			downsample_fraction = 1.0
+		else:
+			downsample_fraction = downsample_pairs / total_pairs
+			print(time.ctime() + f" sampling fraction: {downsample_fraction:.4f}")
+	else:
+		downsample_fraction = 1.0
+	# Initialize counters
+	read_num = 0
+	shrt_count = 0
+	short_inter_count = 0
+	shrt_vip_count = 0
+	long_intra_count = 0
+	long_inter_count = 0
+	long_autosomal_intra_count = 0
+	long_filtered_count = 0
+	short_autosomal_count = 0
+	short_auto_vip_count = 0
+	short_autosomal_inter_count = 0
+
+	# Process reads in pairs using an iterator
+	read_iter = iter(samfile)
+	while True:
+		try:
+			# Get the first read of the pair
+			first_read = next(read_iter)
+			
+			# Downsampling decision for the pair
+			if downsample_pairs > 0 and random.random() > downsample_fraction:
+				next(read_iter)  # Skip the second read
+				continue
+
+			# Get the second read of the pair
+			second_read = next(read_iter)
+
+			# Verify pairing
+			if first_read.query_name != second_read.query_name:
+				sys.exit(f"Error: unmatched query {second_read.query_name} vs {first_read.query_name}")
+
+			# Rename chromosomes if needed
+			if rename_chrs:
+				first_read = rename_read_chromosomes(first_read, new_header)
+				second_read = rename_read_chromosomes(second_read, new_header)
+
+			# Calculate positions
+			pos1 = first_read.reference_end if first_read.is_reverse else first_read.reference_start
+			pos2 = second_read.reference_end if second_read.is_reverse else second_read.reference_start
+
+			# Classify the pair
+			is_intra, is_short, is_vip, is_auto = classify_reads(first_read, second_read, autosomal_chrs, cutoff)
+
+			# Process the pair based on classification
+			if is_intra and is_auto and not is_short:  # Intra-chromosomal long autosomal
+				long_autosomal_intra_count += 2
+				if per_chr:
+					long_intra_bam_files[first_read.reference_name].write(first_read)
+					long_intra_bam_files[second_read.reference_name].write(second_read)
+				if abs(first_read.template_length) <= 1000000:
+					long_filtered_count += 2
+				fout_long_intra.write(first_read)
+				fout_long_intra.write(second_read)
+				long_intra_count += 2
+
+			if not is_intra:  # Inter-chromosomal autosomal reads
+				long_inter_count += 2
+				if is_auto:
+					fout_long_inter.write(first_read)
+					fout_long_inter.write(second_read)
+
+			if is_short and is_intra:  # Short reads
+				if is_auto:  # Write to BAM file
+					fout_shrt.write(first_read)
+					fout_shrt.write(second_read)
+					shrt_count += 2
+				if is_vip and is_auto and pos1 != pos2:  # Short VIP reads
+					chrom = first_read.reference_name
+					fout_shrt_bed.write("\t".join([chrom] + list(map(str, sorted([pos1, pos2]))) + [first_read.query_name, "\n"]))
+					shrt_vip_count += 1
+					if per_chr:
+						short_bed_files[chrom].write("\t".join([chrom] + list(map(str, sorted([pos1, pos2]))) + [first_read.query_name, "\n"]))
+
+			# Hi-C output
+			if generate_hic:
+				if first_read.reference_start > second_read.reference_start:
+					r1, r2 = second_read, first_read
+				else:
+					r1, r2 = first_read, second_read
+				chr1 = r1.reference_name
+				chr2 = r2.reference_name
+				strand1 = 16 if r1.is_reverse else 0
+				strand2 = 16 if r2.is_reverse else 0
+				if chr1 in hic_chr_list and chr2 in hic_chr_list:
+					hic_tsv_files[tuple(sorted([chr1, chr2]))].write(
+						"\t".join([r1.query_name, str(strand1), chr1, str(r1.reference_start), "0",
+								str(strand2), chr2, str(r2.reference_start), "1", "60", "60\n"])
+					)
+
+			# Increment read count by 2 (processed a pair)
+			read_num += 2
+		except StopIteration:
+			break
+	
+	fout_shrt_bed.close()
+	samfile.close()
+	fout_long_inter.close()
+	fout_shrt_inter.close()
+	fout_shrt.close()
+	if (per_chr):
+		close_files(short_bed_files)
+		close_files(long_intra_bam_files)
+	if (generate_hic):
+		close_files(hic_tsv_files)
+		hic_output =  outdir + "/" + prefix + ".hic.input"
+		temp_files = glob.glob( outdir + "/tempfiles/hic_tempfiles/" + prefix + ".hic.*")
+		command = ["cat"]
+		command.extend(temp_files)
+		#print(command)
+		with open(hic_output, 'w') as outfile:
+			
+			proc = subprocess.Popen(command, stdout = outfile, shell= False)
+			proc.communicate()
+#		for chrom in chr_list:
+#			short_bed_files[chrom].close()
+#			long_intra_bam_files[chrom].close()
+	fout_long_intra.close()
+	print(time.ctime() + " generating long, intra-chromosomal bedpe file(s)")
+	if (per_chr):
+		for chrom in chr_list:
+			sam = pysam.AlignmentFile(long_intra_bam_filenames[chrom])
+			if (any(True for _ in sam)):
+				long_bam = pybedtools.BedTool(long_intra_bam_filenames[chrom])
+				long_bedpe = long_bam.bam_to_bed(bedpe = True, stream = True)
+				long_bedpe.saveas(long_intra_bedpe_files[chrom])
+			else:
+				print("\tno bedpe generated for" + chrom +". Empty bam file.")
+	print(time.ctime() + " writing to the combined bedpe file")
+	long_bam = pybedtools.BedTool(fname_output_long_intra)
+	long_bedpe = long_bam.bam_to_bed(bedpe = True, stream = True)
+	long_bedpe.saveas(fname_long_intra_bedpe)
+	qc_filename = outdir + "/" + prefix + ".feather.qc"
+	read_count = read_num / 2
+	long_intra_count /= 2
+	shrt_count /= 2
+	short_autosomal_count /= 2
+	long_autosomal_intra_count /= 2
+	short_autosomal_inter_count /= 2
+	long_filtered_count /= 2
+	short_inter_count /= 2
+	long_inter_count /= 2
+	#inter_all_count = short_inter_count + long_inter_count
+	intra_all_count = shrt_count + long_intra_count
+	if (flagstat_filename):
+		with open(flagstat_filename) as flag_file:
+			lines = flag_file.readlines()
+			duprmd_count = int(lines[7].split()[0])
+			trans_ratio = long_inter_count / duprmd_count
+			long_cis_ratio = long_intra_count / intra_all_count
+	else:
+		trans_ratio, long_cis_ratio = -1, -1
+	if (chip_peaks):
+		command = "cut -f1-3 " + fname_shrt_bed + " > " + outdir + "/tempfiles/shrt_vip_bed.cut"
+		proc = subprocess.Popen(command, stdout = subprocess.PIPE, shell= True)
+		proc.communicate()
+		command = "cut -f1-3 " + chip_peaks + " > " + outdir + "/tempfiles/chip_peaks.cut"
+		proc = subprocess.Popen(command, stdout = subprocess.PIPE, shell= True)
+		proc.communicate()
+		command = "bedtools intersect -a " + outdir + "/tempfiles/shrt_vip_bed.cut" + " -b " + outdir + "/tempfiles/chip_peaks.cut" + " -u | wc -l"
+		proc = subprocess.Popen(command, stdout = subprocess.PIPE, shell= True)
+		on_chip = int(proc.stdout.read().decode("utf-8"))
+		command = "wc -l " + outdir + "/tempfiles/shrt_vip_bed.cut"
+		proc = subprocess.Popen(command, shell = True, stdout = subprocess.PIPE)
+		chip_count = int(proc.stdout.read().decode("utf-8").split()[0])
+		on_chip_ratio = float(on_chip) / chip_count
+	else:
+		on_chip_ratio = -1
+	with open(qc_filename, 'a') as outfile:
+		outfile.write("{0:70} {1} ".format("number of intrachromosomal pairs", str(int(intra_all_count))))
+		outfile.write("\t({0:.2f}%)\n".format(100 * int(float(intra_all_count)) / int(float(read_count))))
+		outfile.write("{0:70} {1} ".format("number of short-range intrachromosomal pairs", str(int(shrt_count))))
+		outfile.write("\t({0:.2f}%)\n".format(100 * int(float(shrt_count)) / int(float(read_count))))
+		#outfile.write("{0:70} {1} ".format("number of short-range intrachromosomal autosomal pairs", str(int(short_autosomal_count))))
+		#outfile.write("\t({0:.2f}%)\n".format(100 * int(float(short_autosomal_count)) / int(float(read_count))))
+		outfile.write("{0:70} {1} ".format("number of short-range vip pairs", str(int(shrt_vip_count))))
+		outfile.write("\t({0:.2f}%)\n".format(100 * int(float(shrt_vip_count)) / int(float(read_count))))
+		outfile.write("{0:70} {1} ".format("number of long-range intrachromosomal pairs", str(int(long_intra_count))))
+		outfile.write("\t({0:.2f}%)\n".format(100 * int(float(long_intra_count)) / int(float(read_count))))
+		outfile.write("{0:70} {1} ".format("number of interchromosomal pairs", str(int(long_inter_count))))
+		outfile.write("\t({0:.2f}%)\n".format(100 * int(float(long_inter_count)) / int(float(read_count))))
+		#outfile.write("{0:70} {1} ".format("number of long-range autosomal intra-chromosomal pairs", str(int(long_autosomal_intra_count))))
+		#outfile.write("\t({0:.2f}%)\n".format(100 * int(float(long_autosomal_intra_count)) / int(float(read_count))))
+		#outfile.write("{0:70} {1} ".format("number of long-range autosomal intra 1k-1M pairs", str(int(long_filtered_count))))
+		#outfile.write("\t({0:.2f}%)\n".format(100 * int(float(long_filtered_count)) / int(float(read_count))))
+		outfile.write("{0:70}".format("trans read ratio") + "{0:.5f} ".format(trans_ratio))
+		outfile.write("\t({0:.2f}%)\n".format(100 * trans_ratio))
+		outfile.write("{0:70}".format("long cis read ratio") + "{0:.5f} ".format(long_cis_ratio))
+		outfile.write("\t({0:.2f}%)\n".format(100 * long_cis_ratio))
+		outfile.write("{0:70}".format("FRiP") + "{0:.5f} ".format(on_chip_ratio))
+		outfile.write("\t({0:.2f}%)\n".format(100 * on_chip_ratio))
+	print(time.ctime() + " splitting completed")
+
+
+def classify_reads(read1, read2, autosomal_chrs, cutoff):
+	is_intra, is_short, is_vip, is_auto = [False] * 4
+	if (read1.reference_name in autosomal_chrs) and (read1.next_reference_name in autosomal_chrs):
+		is_auto = True
+	if ((abs(read1.template_length) <= cutoff) and (abs(read1.template_length) >= 0)):
+		is_short = True
+	if (read1.next_reference_name == read1.reference_name):
+		is_intra = True
+	if ((read2.is_reverse == False and read1.is_reverse == True) or (read2.is_reverse == True and read1.is_reverse == False)):
+		is_vip = True
+	return is_intra, is_short, is_vip, is_auto
+
+def close_files(files_dict):
+	for filename in files_dict.values():
+		filename.close()
+
+def open_hic_files(chr_list, outdir, prefix):
+	files_dir =  outdir + "/tempfiles/hic_tempfiles"
+	if not os.path.exists(files_dir):
+		os.mkdir(files_dir, 0o777)
+	file_prefix = files_dir + "/" + prefix + ".hic."
+	files_dict = {}
+	for i, j in combinations(chr_list, 2):
+		i, j = sorted([i, j])
+		fout1 = open(file_prefix + i + "." + j, 'w')
+		files_dict[(i, j)] = fout1
+	for i in chr_list:
+		fout = open(file_prefix + i + "." + i, 'w')
+		files_dict[(i, i)] = fout
+	return files_dict
+
+def generate_per_chrom_files(chr_list, filename_prefix, temp_filename_prefix, header):
+	bam_files = {}
+	bam_filenames = {}
+	bedpe_files = {}
+	short_bed_files = {}
+	for chrom in chr_list:
+		fname_output_long_intra = temp_filename_prefix + "." + chrom + ".long.intra.bam"
+		fname_output_short_bed = filename_prefix + "." + chrom + ".shrt.vip.bed"
+		fout_short_bed = open(fname_output_short_bed, "w")
+		fout_bam = pysam.AlignmentFile(fname_output_long_intra, "wb", header = header)
+		fname_bedpe = filename_prefix + "." + chrom + ".long.intra.bedpe"
+		short_bed_files[chrom] = fout_short_bed
+		bam_filenames[chrom] = fname_output_long_intra
+		bam_files[chrom] = fout_bam
+		bedpe_files[chrom] = fname_bedpe
+	return (short_bed_files, bam_files, bam_filenames, bedpe_files)
+
+def is_sorted_queryname(header):
+	"""
+	Check if bam fiel is sorted by read name.
+	"""
+	if("HD" in header):
+		if("SO" in header["HD"]):
+			if(header["HD"]["SO"] == "queryname"):
+				return True
+	return False
+
+def extract_chr_list(header):
+	chrs = []
+	for chr_line in header["SQ"]:
+		if "SN" in chr_line:
+			chrs.append(chr_line["SN"])
+	return(chrs)
+
+def rename_read_chromosomes(read, header):
+	r = pysam.AlignedSegment(header)
+	r.reference_name = "chr" + read.reference_name
+	r.next_reference_name = "chr" + read.next_reference_name
+	r.tags = read.tags
+	r.bin, r.cigar, r.cigarstring, r.cigartuples, r.flag, r.is_duplicate, r.is_paired, r.is_proper_pair, r.is_qcfail, r.is_read1, r.is_read2, r.is_reverse, r.is_secondary, r.is_supplementary, r.is_unmapped, r.isize, r.mapping_quality, r.mapq, r.mate_is_reverse, r.mate_is_unmapped, r.mpos, r.mrnm, r.next_reference_id, r.next_reference_start, r.pnext, r.pos = read.bin, read.cigar, read.cigarstring, read.cigartuples, read.flag, read.is_duplicate, read.is_paired, read.is_proper_pair, read.is_qcfail, read.is_read1, read.is_read2, read.is_reverse, read.is_secondary, read.is_supplementary, read.is_unmapped, read.isize, read.mapping_quality, read.mapq, read.mate_is_reverse, read.mate_is_unmapped, read.mpos, read.mrnm, read.next_reference_id, read.next_reference_start, read.pnext, read.pos
+	r.qname, r.query_name, r.query_sequence, r.reference_id, r.reference_start = read.qname, read.query_name, read.query_sequence, read.reference_id, read.reference_start
+	r.rname, r.rnext, r.seq, r.tags, r.template_length, r.tid, r.tlen =  read.rname, read.rnext, read.seq, read.tags, read.template_length, read.tid, read.tlen
+	r.query_qualities = read.query_qualities
+	return(r)
+
+if __name__ == "__main__":
+	input_bam, outdir, prefix, cutoff, per_chr, generate_hic, chip_peaks = sys.argv[1:len(sys.argv)]
+	split_main(input_bam, outdir, prefix, int(float(cutoff)), per_chr, generate_hic, chip_peaks)

@@ -1,0 +1,16 @@
+name: diffloop
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - bioconductor-diffloop>=1.22.0
+  - bioconductor-genomicranges
+  - r-data.table
+  - r-foreach
+  - r-ggplot2
+  - r-knitr
+  - r-readr
+  - r-reshape2
+  - r-tidyverse
+  - r-networkd3
+  - r-optparse

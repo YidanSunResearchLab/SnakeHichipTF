@@ -1,0 +1,9 @@
+name: cooler 
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python>=3.10
+  - numpy
+  - cooler
+

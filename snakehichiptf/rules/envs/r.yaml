@@ -1,0 +1,17 @@
+name: r
+channels:
+  - davebx
+  - conda-forge
+  - bioconda
+dependencies:
+  #- hicpro
+  - r-base=4.4.3
+  - r-data.table=1.17.0
+  - r-mass=7.3_64
+  - r-vgam=1.1_13
+  - multiqc=1.27.1
+  - ucsc-bigwigaverageoverbed
+  - ucsc-wigtobigwig
+  - r-r.utils=2.13.0
+  - r-ggplot2
+  - r-dplyr

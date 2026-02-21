@@ -1,0 +1,11 @@
+#########################################################################
+## HiC-Pro System Configuration
+## Universal config for embedded HiC-Pro in workflows/scripts/hicpro-3.1.0/
+#########################################################################
+
+PREFIX = $(realpath $(dirname $0)/..)
+BOWTIE2_PATH = $(dirname $(which bowtie2))
+SAMTOOLS_PATH = $(dirname $(which samtools))
+R_PATH = $(dirname $(which Rscript))
+PYTHON_PATH = $(dirname $(which python))
+CLUSTER_SYS = NONE

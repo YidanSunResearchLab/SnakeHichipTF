@@ -1,0 +1,12 @@
+name: hicdc
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - bioconductor-hicdcplus=1.14.0
+  - bioconductor-genomicranges=1.58.0
+  - r-dplyr=1.1.4
+  - r-optparse=1.7.5
+  - bioconductor-deseq2=1.46.0
+  - java-jdk=8.0.112
+  - r-data.table=1.17.0

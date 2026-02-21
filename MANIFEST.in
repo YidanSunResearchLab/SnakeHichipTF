@@ -1,0 +1,5 @@
+recursive-include snakehichiptf/data *
+recursive-include snakehichiptf/docs *
+recursive-include snakehichiptf/scripts *
+recursive-include snakehichiptf/rules *
+recursive-include snakehichiptf/rules/envs *

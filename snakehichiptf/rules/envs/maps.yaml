@@ -1,0 +1,12 @@
+name: 
+  maps
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - pysam>=0.15.3
+  - pybedtools>=0.8.1
+  - samtools>=1.6
+  - chromap=0.2.7
+
+
