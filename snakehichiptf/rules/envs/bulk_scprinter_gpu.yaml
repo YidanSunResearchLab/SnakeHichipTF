@@ -1,0 +1,46 @@
+name: scprinter_gpu
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  # --- GPU stack ---
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=12.1  # Need to confirm CUDA version
+  # --- Scientific core ---
+  - numpy
+  - pandas
+  - pooch
+  - matplotlib
+  - seaborn
+  - scikit-learn
+  - tqdm
+
+  # --- Bioinformatics / single-cell ---
+  - anndata>=0.8
+  - scanpy>=1.9
+  - pybigwig
+  - gffutils
+  - pyranges
+  - pyfaidx
+  - biopython
+  
+  # --- Bam to Fragments tools ---
+  - samtools
+  - bedtools
+  - htslib    # provides bgzip and tabix
+
+  # --- Build tools ---
+  - rust
+  - cmake
+  - hdf5
+  - pip
+  - wandb
+
+  # --- Install scPrinter from GitHub ---
+  - pip:
+      - "scprinter @ git+https://github.com/buenrostrolab/scPrinter.git"

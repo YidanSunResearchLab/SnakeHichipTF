@@ -1,0 +1,47 @@
+name: scprinter_gpu
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - python=3.13
+
+  # ---- PyTorch CUDA (choose ONE CUDA version) ----
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=12.1
+
+  # ---- core scientific ----
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn
+  - matplotlib
+  - tqdm
+
+  # ---- single-cell IO ----
+  - anndata>=0.8
+  - scanpy>=1.9
+  - h5py
+
+  # ---- genomics utils ----
+  - pybigwig
+  - pyranges
+  - pyfaidx
+  - biopython
+  - gffutils
+
+  # ---- peak calling / BAM utils ----
+  - macs2
+  - samtools
+  - bedtools
+  - htslib
+
+  # ---- pip installs ----
+  - pip
+  - pip:
+      - "scprinter @ git+https://github.com/buenrostrolab/scPrinter.git"
+      - ema-pytorch

@@ -1,13 +1,13 @@
-### `docs/ATACfootprinting.md`
+### `docs/TFtobias.md`
 
-# ATACfootprinting: ATAC-Seq Footprinting
+# TFtobias: ATAC-Seq Footprinting
 
-`ATACfootprinting` analyzes ATAC-seq BAM files for transcription factor footprints using the TOBIAS software on enhancer regions.
+`TFtobias` analyzes ATAC-seq BAM files for transcription factor footprints using the TOBIAS software on enhancer regions.
 
 
 ## Usage
 ```bash
-ATACfootprinting [options]
+TFtobias [options]
 ```
 
 ### Required Arguments
@@ -15,7 +15,7 @@ ATACfootprinting [options]
 - `--organism`: Genome assembly, the same as Genomesetup step (e.g., `hg38`).
 - `--genome_dir`: Directory from Genomesetup step (e.g., `/abs/path/to/genome`).
 - `--atacseq_bam`: Space-separated filtered BAM files (e.g., `"alpha27_atac.filtered.bam GM12878_atac.filtered.bam"`).
-- `--enhancer_bed`: BEDPE file with interactions, derived from Hichipsnake step (e.g., `"maps_out/GM12878.significantInteractions.bedpe"`).
+- `--enhancer_bedpe`: BEDPE file with interactions, derived from Hichipsnake step (e.g., `"maps_out/GM12878.significantInteractions.bedpe"`).
 - `--samples`: Space-separated sample names matching BAMs (e.g., `"Alpha27 GM12878"`).
 
 ### Optional Arguments
@@ -25,17 +25,17 @@ ATACfootprinting [options]
 
 ### Example
 ```bash
-ATACfootprinting \
+TFtobias \
   -o /path/to/hichipsnake/step/output/directory/ \
   --organism hg38 \
   --atacseq_bam "sample1.bam sample2.bam" \
-  --enhancer_bed "sample1.significantInteractions.bedpe" \
+  --enhancer_bedpe "sample1.significantInteractions.bedpe" \
   --samples "sample1 sample2" \
   --threads 100 \
   --motif "/path/to/JASPAR2024_CORE_non-redundant_pfms_meme03142025"
 ```
 
-## ATACfootprinting Output
+## TFtobias Output
 ```
 hichip_test_samples_output/
 ├── Alpha27/

@@ -1,13 +1,13 @@
-### `docs/Hichipsnake.md`
+### `docs/Snakehichip.md`
 
-# Hichipsnake: HiChIP/PLAC-Seq Pipeline
+# Snakehichip: HiChIP/PLAC-Seq Pipeline
 
-`Hichipsnake` processes paired-end HiChIP or PLAC-seq FASTQ gz files into interaction maps and significant contacts using Hicdcplus, Hichipper, Fithichip and Maps.
+`Snakehichip` processes paired-end HiChIP or PLAC-seq FASTQ gz files into interaction maps and significant contacts using Hicdcplus, Hichipper, Fithichip and Maps.
 
 
 ## Usage
 ```bash
-Hichipsnake [options]
+Snakehichip [options]
 ```
 
 ### Required Arguments
@@ -34,12 +34,11 @@ Hichipsnake [options]
 - `--hicpro_params`: Optional HiC-Pro config file path. Default: NA (none).
 - `--hichipper_params`: Optional space-separated Hichipper parameters (e.g., --read-length 75). Default: NA (none).
 - `--hicdc_params`: Optional space-separated Hicdcplus parameters (e.g., --PeakFile peaks.bed). Default: NA (none).
-- `--samples_comparison`: Space-separated sample names for differential analysis (e.g., SampleA SampleB). Default: none.
 
 
 ### Example
 ```bash
-Hichipsnake.py \
+Snakehichip.py \
   -i /path/to/your/fastqs/ \
   -o /path/to/your/output/ \
   --genome_dir /path/to/your/genome/ \
@@ -53,7 +52,7 @@ Hichipsnake.py \
   --maps_sex_chroms X
 ```
 
-## Hichipsnake Output
+## Snakehichip Output
 ```
 hichip_test_samples_output$ tree -L 1
 .
@@ -62,7 +61,7 @@ hichip_test_samples_output$ tree -L 1
 ├── fithichip
 ├── hicdcplus
 ├── hichipper
-├── hichipsnake_run_1.log
+├── Snakehichip_run_1.log
 ├── hicpro
 ├── logs
 ├── maps
@@ -81,7 +80,7 @@ hichip_test_samples_output/
 - **`fithichip`** - FitHiChIP analysis outputs, including significant peak-to-all interactions (e.g., `fithichip/{sample}/FitHiChIP_peaktoall_BinSize{bin_size}/FitHiChIP.interactions.peaktoall.significant.bed`).
 - **`hicdcplus`** - Hicdcplus analysis outputs, containing significant interaction BEDPE files (e.g., `hicdcplus/{sample}/significant_interactions.bedpe.gz`).
 - **`hichipper`** - Hichipper analysis outputs, including filtered intrachromosomal loop counts (e.g., `hichipper/{sample}/one.filt.intra.loop_counts.bedpe`).
-- **`hichipsnake_run_1.log`** - Top-level log file for the entire pipeline run, capturing execution details and errors.
+- **`Snakehichip_run_1.log`** - Top-level log file for the entire pipeline run, capturing execution details and errors.
 - **`hicpro`** - HiC-Pro processing outputs, including BAM files, valid pairs, and interaction matrices (e.g., `hicpro/{sample}/hic_results/data/{sample}/{sample}.allValidPairs`).
 - **`logs`** - Detailed log files for individual pipeline steps per sample (e.g., `logs/hichip_qc.{sample}.log`).
 - **`maps`** - MAPS analysis outputs, containing significant 3D interaction BEDPE files (e.g., `maps/{sample}/{sample}.{bin_size/1000}k.sig3Dinteractions.bedpe`).
