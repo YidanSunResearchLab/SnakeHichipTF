@@ -8,7 +8,7 @@
 
 **SnakeHichipTF** is a modular, reproducible, and scalable Snakemake-based workflow for integrative analysis of **HiChIP** and **PLAC-seq** datasets, with optional integration of **ATAC-seq–based transcription factor (TF) footprinting**.
 
-![Image](docs/overview.png)
+![Image](snakehichiptf/docs/overview.png)
 
 
 The pipeline supports:
@@ -98,7 +98,7 @@ cd SnakeHichipTF
 ## 2. Create Environment
 
 ```bash
-conda create -n SnakeHichipTF -c conda-forge python>=3.8
+conda create -n SnakeHichipTF -c conda-forge python=3.13
 conda activate SnakeHichipTF
 pip install .
 ```
@@ -244,12 +244,7 @@ SnakeHichipTF/
 │   ├── workflows/
 │   ├── rules/
 │   ├── scripts/
-│
-├── docs/
-│   ├── Genomesetup.md
-│   ├── Snakehichip.md
-│   ├── TFscprinter.md
-│   ├── TFtobias.md
+│   ├── docs/
 │
 └── setup.py
 ```
@@ -260,10 +255,10 @@ SnakeHichipTF/
 
 Detailed documentation for each module:
 
-- [Genomesetup.py](docs/Genomesetup.md)
-- [Snakehichip.py](docs/Snakehichip.md)
-- [TFscprinter.py](docs/TFscprinter.md)
-- [TFtobias.py](docs/TFtobias.md)
+- [Genomesetup.py](snakehichiptf/docs/Genomesetup.md)
+- [Snakehichip.py](snakehichiptf/docs/Snakehichip.md)
+- [TFscprinter.py](snakehichiptf/docs/TFscprinter.md)
+- [TFtobias.py](snakehichiptf/docs/TFtobias.md)
 
 See the `docs/` directory for command-level explanations.
 
