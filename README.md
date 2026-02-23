@@ -257,6 +257,7 @@ Detailed documentation for each module:
 
 - [Genomesetup.py](snakehichiptf/docs/Genomesetup.md)
 - [Snakehichip.py](snakehichiptf/docs/Snakehichip.md)
+- [Diffhichip.py](snakehichiptf/docs/Diffhichip.md)
 - [TFscprinter.py](snakehichiptf/docs/TFscprinter.md)
 - [TFtobias.py](snakehichiptf/docs/TFtobias.md)
 
