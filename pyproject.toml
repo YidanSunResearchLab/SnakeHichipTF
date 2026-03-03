@@ -27,12 +27,12 @@ requires-python = ">=3.8"
 
 [project.scripts]
 Genomesetup = "snakehichiptf.workflows.Genomesetup:main"
-snakehichiptf = "snakehichiptf.workflows.Snakehichip:main"
+Snakehichip = "snakehichiptf.workflows.Snakehichip:main"
 Diffhichip = "snakehichiptf.workflows.Diffhichip:main"
 TFtobias = "snakehichiptf.workflows.TFtobias:main"
 TFscprinter = "snakehichiptf.workflows.TFscprinter:main"
-sap = "snakehichiptf.cli:main"
-sap-ui = "snakehichiptf.ui.launch:main"
+snakehichiptf = "snakehichiptf.cli:main"
+snakehichiptf-ui = "snakehichiptf.ui.launch:main"
 
 
 [tool.setuptools]

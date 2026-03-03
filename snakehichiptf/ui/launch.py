@@ -1,21 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
 import subprocess
 from importlib import resources
 
-
 def main():
-    # locate the app file inside the installed package
-    with resources.path('snakehichip.ui', 'stl_app.py') as app_path:
-        cmd = [
-            "streamlit",
-            "run",
-            str(app_path),
-            "--browser.gatherUsageStats",
-            "false"
-        ]
-        subprocess.run(cmd)
+    # robust way to locate packaged file
+    app_path = resources.files("snakehichiptf.ui").joinpath("stl_app.py")
+    cmd = [
+        "streamlit", "run", str(app_path),
+        "--browser.gatherUsageStats", "false",
+    ]
+    raise SystemExit(subprocess.call(cmd))
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

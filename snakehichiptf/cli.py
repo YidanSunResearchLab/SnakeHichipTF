@@ -1,3 +1,4 @@
+from html import parser
 import argparse, subprocess, sys, shutil
 
 def main():
@@ -12,6 +13,7 @@ def main():
     parser.add_argument("--workdir", type=str, default=".",
                         help="Working directory")
     parser.add_argument("--dryrun", action="store_true", help="Snakemake -n")
+    parser.add_argument("--profile", type=str, default=None, help="Snakemake profile directory")
     args, extra = parser.parse_known_args()
 
     cmd = [
@@ -21,6 +23,10 @@ def main():
         "--directory", args.workdir,
         "--configfile", args.configfile,
     ]
+    
+    if args.profile:
+        cmd += ["--profile", args.profile]
+
     if args.dryrun:
         cmd.append("-n")
     cmd.extend(extra)

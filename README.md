@@ -113,6 +113,15 @@ Snakehichip --help
 
 ---
 
+## 🖥️ Optional: Launch GUI
+
+For a graphical interface:
+
+```bash
+snakehichiptf-ui
+```
+
+---
 # Quick Start Guide
 
 SnakeHichipTF provides several high-level commands.
