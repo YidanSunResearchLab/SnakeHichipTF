@@ -3,14 +3,14 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - bioconductor-diffloop>=1.22.0
-  - bioconductor-genomicranges
-  - r-data.table
-  - r-foreach
-  - r-ggplot2
-  - r-knitr
-  - r-readr
-  - r-reshape2
-  - r-tidyverse
-  - r-networkd3
-  - r-optparse
+  - bioconductor-diffloop=1.22.0
+  - bioconductor-genomicranges=1.46.1
+  - r-data.table=1.14.8
+  - r-foreach=1.5.2
+  - r-ggplot2=3.4.2
+  - r-knitr=1.43
+  - r-readr=2.1.4
+  - r-reshape2=1.4.4
+  - r-tidyverse=2.0.0
+  - r-networkd3=0.4
+  - r-optparse=1.7.3

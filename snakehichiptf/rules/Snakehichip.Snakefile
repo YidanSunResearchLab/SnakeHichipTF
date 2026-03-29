@@ -252,7 +252,7 @@ rule hicdc_significant_interactions:
         valid_pairs="hicpro/{sample}/hic_results/data/{sample}/{sample}.allValidPairs",
     output:
         bedpe="hicdcplus/{sample}/Hicdcplus.{sample}.significant_interactions.bedpe",
-        hic="hicdcplus/{sample}/Hicdcplus.{sample}.all_interactions.hic"
+        #hic="hicdcplus/{sample}/Hicdcplus.{sample}.all_interactions.hic"
     params:
         bintolen=expand(genome_dir+"/organisms/{organism}/{restriction_enzyme}/{bin_size}/restriction_enzyme.hicdcplus.bintolen.txt.gz", organism=organism, restriction_enzyme=restriction_enzyme, bin_size=bin_size),
         outdir="hicdcplus/{sample}",
@@ -768,7 +768,7 @@ rule maps_run_maps:
     benchmark:
         "benchmarks/maps_run_maps.{sample}.benchmark.txt"
     conda:
-        "envs/maps.yaml"
+        "envs/mapsrun.yaml"
     shell:
         """
         python {script_dir}/../scripts/MAPS.py {input} > {log} 2>&1

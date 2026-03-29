@@ -10,8 +10,8 @@ dependencies:
   - r-mass=7.3_64
   - r-vgam=1.1_13
   - multiqc=1.27.1
-  - ucsc-bigwigaverageoverbed
-  - ucsc-wigtobigwig
+  - ucsc-bigwigaverageoverbed=482
+  - ucsc-wigtobigwig=482
   - r-r.utils=2.13.0
-  - r-ggplot2
-  - r-dplyr
+  - r-ggplot2=4.0.2
+  - r-dplyr=1.2.0

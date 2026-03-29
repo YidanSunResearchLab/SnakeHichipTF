@@ -4,17 +4,17 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - r-base
-  - r-optparse
-  - r-ggplot2
-  - r-data.table
-  - r-splines2
-  - r-fdrtool
-  - r-parallelly
-  - r-plyr
-  - r-dplyr
-  - bioconductor-genomicranges
-  - bioconductor-edger
-  - bedtools
-  - networkx
-  - python
+  - r-base=4.5.3
+  - r-optparse=1.7.5
+  - r-ggplot2=4.0.2
+  - r-data.table=1.17.8
+  - r-splines2=0.5.4
+  - r-fdrtool=1.2.18
+  - r-parallelly=1.46.1
+  - r-plyr=1.8.9
+  - r-dplyr=1.2.0
+  - bioconductor-genomicranges=1.62.1
+  - bioconductor-edger=4.8.2
+  - bedtools=2.31.1
+  - networkx=3.6.1
+  - python=3.14.3

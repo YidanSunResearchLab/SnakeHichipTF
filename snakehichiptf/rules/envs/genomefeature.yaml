@@ -4,9 +4,9 @@ channels:
   - bioconda
   - conda-forge
 dependencies:
-  - pandas
-  - biopython
-  - ucsc-bigwigaverageoverbed
-  - ucsc-wigtobigwig
-  - ucsc-bigwigtobedgraph
+  - pandas=0.24.2
+  - biopython=1.70
+  - ucsc-bigwigaverageoverbed=482
+  - ucsc-wigtobigwig=482
+  - ucsc-bigwigtobedgraph=482
   

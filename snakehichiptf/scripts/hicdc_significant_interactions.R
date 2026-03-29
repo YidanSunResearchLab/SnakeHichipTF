@@ -185,14 +185,28 @@ print(head(gi_list))
 save(gi_list, file=paste0(output_dir, paste0("/Hicdcplus.",sample_name,".all_interactions.RData")))
 
 # Export to .hic for visualization
-hic_file_out <- paste0(output_dir, paste0("/Hicdcplus.",sample_name,".all_interactions.hic"))
-hicdc2hic(gi_list,hicfile = hic_file_out,mode='normcounts')
+hic_file_out <- paste0(output_dir, "/Hicdcplus.", sample_name, ".all_interactions.hic")
+
+hic_ok <- TRUE
+tryCatch({
+  hicdc2hic(gi_list, hicfile = hic_file_out, mode = "normcounts")
+}, error = function(e) {
+  hic_ok <<- FALSE
+  message("[WARN] hicdc2hic() failed for sample: ", sample_name)
+  message("[WARN] ", conditionMessage(e))
+})
 
 # Export to bedpe
 # Combine all GInteractions objects and filter for significant interactions
 all_gi <- gi_list[[1]]
-for (i in 2:length(gi_list)) {
-  all_gi <- c(all_gi, gi_list[[i]])
+if (length(gi_list) > 1) {
+  for (i in 2:length(gi_list)) {
+    all_gi <- c(all_gi, gi_list[[i]])
+  }
+}
+
+if (!hic_ok) {
+  message("[WARN] .hic was not generated, but continuing to export BEDPE/RData outputs.")
 }
 saveRDS(all_gi, file = paste0(output_dir, paste0("/Hicdcplus.",sample_name,".all_interactions.ginteraction.rds")))
 

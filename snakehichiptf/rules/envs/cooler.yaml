@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - python>=3.10
-  - numpy
-  - cooler
+  - python=3.12.13
+  - numpy=2.4.3
+  - cooler=0.10.4
 

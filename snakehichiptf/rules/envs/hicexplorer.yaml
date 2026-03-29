@@ -3,4 +3,5 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - hicexplorer>=3.6.2
+  - python=3.10.20
+  - hicexplorer=3.7.2

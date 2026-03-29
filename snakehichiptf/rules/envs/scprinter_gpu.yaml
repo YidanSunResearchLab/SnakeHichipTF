@@ -6,42 +6,43 @@ channels:
   - bioconda
 
 dependencies:
-  - python=3.13
+  - python=3.10.19
 
   # ---- PyTorch CUDA (choose ONE CUDA version) ----
-  - pytorch
-  - torchvision
-  - torchaudio
+  - pytorch=2.5.1
+  - torchvision=0.20.1
+  - torchaudio=2.5.1
   - pytorch-cuda=12.1
 
   # ---- core scientific ----
-  - numpy
-  - pandas
-  - scipy
-  - scikit-learn
-  - matplotlib
-  - tqdm
+  - numpy=2.2.6
+  - pandas=2.3.3
+  - scipy=1.15.2
+  - scikit-learn=1.7.2
+  - matplotlib=3.10.8
+  - tqdm=4.67.1
 
   # ---- single-cell IO ----
-  - anndata>=0.8
-  - scanpy>=1.9
-  - h5py
+  - anndata=0.11.4
+  - scanpy=1.11.5
+  - h5py=3.15.1
 
   # ---- genomics utils ----
-  - pybigwig
-  - pyranges
-  - pyfaidx
-  - biopython
-  - gffutils
+  - pybigwig=0.3.24
+  - pyranges=0.1.4
+  - pyfaidx=0.9.0.3
+  - biopython=1.86
+  - gffutils=0.13
 
   # ---- peak calling / BAM utils ----
-  - macs2
-  - samtools
-  - bedtools
-  - htslib
+  - samtools=1.22.1
+  - bedtools=2.31.1
+  - htslib=1.22.1
+  - snapatac2=2.5.3
 
   # ---- pip installs ----
   - pip
   - pip:
-      - "scprinter @ git+https://github.com/buenrostrolab/scPrinter.git"
+      - MACS2==2.2.9.1
+      - "scprinter @ git+https://github.com/buenrostrolab/scPrinter.git@5ecaa1414"
       - ema-pytorch

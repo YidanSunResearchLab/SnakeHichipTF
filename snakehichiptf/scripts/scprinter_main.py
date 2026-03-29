@@ -30,9 +30,6 @@ import shutil
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import gzip
-
-
-# ---- Patch scPrinter shift_detection gzip reading (no upstream edits) ----
 def patch_scprinter_shift_detection_read_csv():
     try:
         import scprinter.shift_detection as _sd
@@ -41,6 +38,7 @@ def patch_scprinter_shift_detection_read_csv():
         from pathlib import Path
 
         if getattr(pd.read_csv, "_snakehichiptf_patched", False):
+            print("[INFO] pandas.read_csv already patched")
             return
 
         _orig_read_csv = pd.read_csv
@@ -49,10 +47,13 @@ def patch_scprinter_shift_detection_read_csv():
             is_pathlike = isinstance(filepath_or_buffer, (str, os.PathLike, Path))
             if is_pathlike:
                 p = os.fspath(filepath_or_buffer)
+                print(f"[DEBUG] pd.read_csv called on: {p}")
+
+                kwargs = dict(kwargs)
+
                 if p.endswith((".gz", ".bgz")):
-                    kwargs = dict(kwargs)
                     kwargs.setdefault("compression", "gzip")
-                    kwargs.setdefault("engine", "c")
+                    print(f"[DEBUG] forcing gzip compression for: {p}")
 
             return _orig_read_csv(filepath_or_buffer, *args, **kwargs)
 
@@ -61,9 +62,97 @@ def patch_scprinter_shift_detection_read_csv():
         pd.read_csv = _patched_read_csv
         _sd.pd.read_csv = _patched_read_csv
 
-        print("[INFO] Patched pandas.read_csv + scprinter.shift_detection.pd.read_csv for .gz/.bgz")
+        print("[INFO] Patched pandas.read_csv and scprinter.shift_detection.pd.read_csv")
     except Exception as e:
         print(f"[WARN] Failed to patch scprinter shift_detection read_csv: {e}")
+
+def patch_scprinter_import_data_for_snapatac2():
+    try:
+        import scprinter.preprocessing as sp
+        import snapatac2 as snap
+        import inspect
+
+        # Only patch when old API is missing
+        if callable(getattr(snap.pp, "import_data", None)):
+            print("[INFO] snapatac2.preprocessing.import_data exists; no scprinter patch needed")
+            return
+
+        # New SnapATAC2 API location
+        import_fragments_fn = None
+        if hasattr(snap.pp, "_import_data"):
+            mod = snap.pp._import_data
+            import_fragments_fn = getattr(mod, "import_fragments", None)
+
+        if not callable(import_fragments_fn):
+            raise RuntimeError("Could not find callable snapatac2.preprocessing._import_data.import_fragments")
+
+        _orig_import_data = sp.import_data
+        def _patched_import_data(*args, **kwargs):
+            print("[WARN] Using patched scprinter.preprocessing.import_data -> snapatac2.import_fragments")
+            print("[DEBUG] args =", args)
+            print("[DEBUG] kwargs =", kwargs)
+            print("[DEBUG] original kwargs keys =", list(kwargs.keys()))
+
+            # old import_data positional args, inferred from your debug:
+            # 0: fragment_file
+            # 1: something currently None
+            # 2: genome object
+            # 3: some integer
+            # 4: some integer
+            # 5: output path
+            fragment_file = args[0] if len(args) > 0 else kwargs.get("fragment_file")
+            maybe_none    = args[1] if len(args) > 1 else None
+            genome_obj    = args[2] if len(args) > 2 else kwargs.get("genome")
+            arg3          = args[3] if len(args) > 3 else None
+            arg4          = args[4] if len(args) > 4 else None
+            out_path      = args[5] if len(args) > 5 else None
+
+            print("[DEBUG] fragment_file =", repr(fragment_file))
+            print("[DEBUG] maybe_none =", repr(maybe_none))
+            print("[DEBUG] genome_obj =", repr(genome_obj))
+            print("[DEBUG] genome_obj type =", type(genome_obj))
+            print("[DEBUG] arg3 =", repr(arg3), "type =", type(arg3))
+            print("[DEBUG] arg4 =", repr(arg4), "type =", type(arg4))
+            print("[DEBUG] out_path =", repr(out_path))
+
+            chrom_sizes = None
+
+            # try to recover chrom_sizes from genome object
+            if genome_obj is not None:
+                for attr in ["chrom_sizes", "chromSize", "chromsizes", "_chrom_sizes"]:
+                    if hasattr(genome_obj, attr):
+                        chrom_sizes = getattr(genome_obj, attr)
+                        print(f"[DEBUG] using genome_obj.{attr} for chrom_sizes")
+                        break
+
+            print("[DEBUG] chrom_sizes value =", repr(chrom_sizes))
+            print("[DEBUG] chrom_sizes type =", type(chrom_sizes))
+            if genome_obj is not None:
+                print("[DEBUG] genome_obj dir sample =", [x for x in dir(genome_obj) if "chrom" in x.lower()])
+            if chrom_sizes is None:
+                raise ValueError(
+                    "[PATCH DEBUG] chrom_sizes is still None. "
+                    "Need to inspect genome_obj attributes and map the correct one."
+                )
+
+            mapped = {
+                "fragment_file": fragment_file,
+                "chrom_sizes": chrom_sizes,
+                "min_num_fragments": kwargs.get("min_num_fragments", 1000),
+                "sorted_by_barcode": kwargs.get("sorted_by_barcode", False),
+            }
+
+            print("[DEBUG] mapped kwargs keys =", list(mapped.keys()))
+            print("[DEBUG] mapped =", mapped)
+
+            return import_fragments_fn(**mapped)
+        sp.import_data = _patched_import_data
+        print("[WARN] Patched scprinter.preprocessing.import_data for SnapATAC2>=2.9")
+
+    except Exception as e:
+        print(f"[WARN] Failed to patch scprinter import_data: {e}")
+        raise
+
 # ------------------------------------------------------------------------
 
 def auto_select_gpus():
@@ -185,13 +274,23 @@ def main():
 
     frag_dir = f"{main_dir}/fragments"
     os.makedirs(frag_dir, exist_ok=True)
-
-    frag_files = sorted([os.path.join(frag_dir, f) for f in os.listdir(frag_dir) if re.search("fragments.tsv.gz", f)])
+    frag_files = sorted([
+        os.path.join(frag_dir, f)
+        for f in os.listdir(frag_dir)
+        if f.endswith("_fragments.tsv.gz")
+    ])
+    #frag_files = sorted([os.path.join(frag_dir, f) for f in os.listdir(frag_dir) if re.search("fragments.tsv.gz", f)])
     samples = [os.path.basename(f).replace("_fragments.tsv.gz", "") for f in frag_files]
 
     gpu_ids = auto_select_gpus()
     print(f"[INFO] Using GPUs: {gpu_ids}")
+    print(f"[DEBUG] main_dir = {main_dir}")
+    print(f"[DEBUG] frag_dir = {frag_dir}")
+    print(f"[DEBUG] frag_files = {frag_files}")
+    print(f"[DEBUG] samples = {samples}")
 
+    patch_scprinter_shift_detection_read_csv()
+    patch_scprinter_import_data_for_snapatac2()
     # Import fragments
     printer = scp.pp.import_fragments(
         path_to_frags=frag_files,
@@ -362,7 +461,8 @@ def main():
                 gpu = str(i % 2)
                 sample_work_dir = os.path.join(work_dir, f"tfbs_{sample}")
                 os.makedirs(sample_work_dir, exist_ok=True)
-                sample_dummy_tfbs = os.path.join(sample_work_dir, "dummy_TFBS.bigwig")
+                sample_dummy_tfbs = os.path.join(tfbs_dir, f"{sample}_TFBS.bigwig")
+                #sample_dummy_tfbs = os.path.join(sample_work_dir, "dummy_TFBS.bigwig")
                 lora_config = json.load(open(os.path.join(configs_dir, f"ATAC_{sample}_fold0.JSON")))
                 fut = executor.submit(
                     scp.tl.seq_tfbs_seq2print,

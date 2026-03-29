@@ -4,6 +4,6 @@ channels:
   - bioconda
 dependencies:
   - hichipper=0.7.7
-  - bedtools
-  - bioconductor-genomicranges
-  - r-data.table
+  - bedtools=2.31.1
+  - bioconductor-genomicranges=1.62.1
+  - r-data.table=1.17.8
