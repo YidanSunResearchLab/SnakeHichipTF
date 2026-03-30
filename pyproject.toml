@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "SnakeHichipTF"
-version = "0.1.0"
+version = "0.1.2"
 description = "A Snakemake pipeline for integrating HiChIP differential interaction analysis and TF binding analysis."
 readme = "README.md"
 license = { file = "LICENSE.md" }

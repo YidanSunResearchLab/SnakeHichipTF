@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="SnakeHichipTF",
-    version="0.1.0",
+    version="0.1.2",
     description="A Snakemake pipeline for HiChIP data analysis",
     author="Yidan Sun",
     author_email="syidan@wustl.edu",
