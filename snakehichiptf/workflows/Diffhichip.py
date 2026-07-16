@@ -55,6 +55,10 @@ def main():
     parser.add_argument("--fdr", type=float, default=0.05, help="FDR threshold passed to pipeline (default: 0.05).")
     parser.add_argument("--bin_size", type=int, default=5000, help="Bin size passed to pipeline (default: 5000).")
     parser.add_argument("--fitType", default="mean", help="fitType passed to pipeline (default: mean).")
+    parser.add_argument(                                              # <-- 加这三行
+        "--consensus_bedpe", default="",
+        help="(optional) consensus BEDPE from consensus_interactions.py"
+    )
     parser.add_argument(
         "--conda_prefix", default=None,
         help="Conda prefix for snakemake environments. If provided, passed via --conda-prefix."
@@ -120,6 +124,7 @@ def main():
         f"fdr={args.fdr}",
         f"bin_size={args.bin_size}",
         f"fitType={args.fitType}",
+        f"consensus_bedpe={args.consensus_bedpe}",
     ]
 
     if args.conda_prefix:

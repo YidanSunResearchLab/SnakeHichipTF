@@ -41,6 +41,8 @@ rule hicdc_differential_interactions:
     input:
         samplesheet=samplesheet,
         sample_bedpes=lambda wildcards: sample_paths_from_samplesheet(samplesheet),
+        # NEW: optional consensus file — set consensus_bedpe="" in config to skip
+        consensus=config.get("consensus_bedpe", ""),
     output:
         pdf=f"{outdir}/hicdcdiff_sessionInfo.txt",
     params:
@@ -49,6 +51,11 @@ rule hicdc_differential_interactions:
         fdr=fdr,
         binsize=bin_size,
         fitType=fitType,
+        min_support=config.get("consensus_min_support", 2),
+        # only pass --consensus flag when the file is actually provided
+        consensus_arg=lambda wildcards, input:
+            f"--consensus {input.consensus} --min_support {config.get('consensus_min_support', 2)}"
+            if input.consensus and input.consensus != "" else "",
     log:
         f"logs/differential_interactions_hicdc.{samplesheet_tag}.log"
     benchmark:
@@ -61,12 +68,13 @@ rule hicdc_differential_interactions:
         mkdir -p {params.outdir}
         Rscript {script_dir}/../scripts/hicdc_differential_interactions.R \
           --samplesheet {params.samplesheet} \
-          --output_dir {params.outdir} \
-          --fitType {params.fitType} \
-          --binsize {params.binsize} \
-          --fdr {params.fdr} > {log} 2>&1
+          --output_dir  {params.outdir}      \
+          --fitType     {params.fitType}     \
+          --binsize     {params.binsize}     \
+          --fdr         {params.fdr}         \
+          {params.consensus_arg}             \
+          > {log} 2>&1
         """
-
 
 
 #############################################

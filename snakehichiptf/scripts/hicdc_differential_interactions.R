@@ -1,26 +1,28 @@
 #!/usr/bin/env Rscript
 
 suppressPackageStartupMessages({
-  library(optparse)
-  library(data.table)
-  library(HiCDCPlus)
+library(optparse)
+library(data.table)
+library(HiCDCPlus)
 })
 
 # ----------------------------
 # Command line arguments
 # ----------------------------
 option_list <- list(
-  make_option("--samplesheet", type="character", help="TSV with columns: path, condition"),
-  make_option("--output_dir", type="character", help="Output directory"),
-  make_option("--fdr", type="double", default=0.05, help="FDR cutoff for union index (default=0.05)"),
-  make_option("--binsize", type="integer", default=5000),
-  make_option("--fitType", type="character", default="mean")
+make_option("--samplesheet", type="character", help="TSV with columns: path, condition"),
+make_option("--output_dir", type="character", help="Output directory"),
+make_option("--fdr", type="double", default=0.05, help="FDR cutoff for union index (default=0.05)"),
+make_option("--binsize", type="integer", default=5000),
+make_option("--fitType", type="character", default="mean"),
+make_option("--consensus", type="character", default=NULL,
+            help="(optional) consensus BEDPE from consensus_interactions.py"),
 )
 
 opt <- parse_args(OptionParser(option_list=option_list))
 
 if (is.null(opt$samplesheet) || is.null(opt$output_dir)) {
-  stop("Must provide --samplesheet and --output_dir")
+stop("Must provide --samplesheet and --output_dir")
 }
 
 if (!dir.exists(opt$output_dir)) dir.create(opt$output_dir, recursive=TRUE)
@@ -33,48 +35,63 @@ if (!grepl("/$", opt$output_dir)) {opt$output_dir <- paste0(opt$output_dir, "/")
 # ----------------------------
 ss <- read.delim(opt$samplesheet, header=TRUE, stringsAsFactors=FALSE)
 ss$path <- file.path(
-  opt$output_dir, "samples_link",
-  sub("\\.bedpe\\.gz$", ".txt.gz",
-      basename(ss$samplename))
+opt$output_dir, "samples_link",
+sub("\\.bedpe\\.gz$", ".txt.gz",
+basename(ss$samplename))
 )
 filter_file <- file.path(opt$output_dir, paste(paste(unique(ss$condition), collapse = "_"), "union_analysis_indices.txt.gz",sep="_"))
 
 if (!all(c("samplename","condition") %in% names(ss))) {
-  stop("Samplesheet must contain columns: samplename, condition")
+stop("Samplesheet must contain columns: samplename, condition")
 }
 
 # Check files exist
 if (any(!file.exists(ss$samplename))) {
-  stop("Some files in samplesheet do not exist.")
+stop("Some files in samplesheet do not exist.")
 }
 
 # Link file paths to output directory
 dir.create(file.path(opt$output_dir, "samples_link"), showWarnings = FALSE)
 file.symlink(
-  from = ss[,1],
-  to   = file.path(
-           opt$output_dir, "samples_link",
-           sub("\\.bedpe\\.gz$", ".txt.gz",
-               basename(ss[,1]))
+from = ss[,1],
+to   = file.path(
+opt$output_dir, "samples_link",
+sub("\\.bedpe\\.gz$", ".txt.gz",
+basename(ss[,1]))
          )
 )
 
 # ----------------------------
 # Step 1: Build union index
+# NEW: if --consensus is provided and the file exists, use it instead of the
+# HiC-DC+ qvalue union.  Otherwise, behaviour is identical to the original script.
 # ----------------------------
-message("Building union index...")
+use_consensus <- !is.null(opt$consensus) && nchar(opt$consensus) > 0 &&
+                 file.exists(opt$consensus)
 
-extract_index <- function(f, fdr_cutoff) { 
+if (use_consensus) {
+
+  message("Building union index from consensus file: ", opt$consensus)
+  con <- fread(opt$consensus, showProgress=FALSE)
+  indexfile <- unique(con[, .(chr=chr, startI=as.integer(start1), startJ=as.integer(start2))])
+  setorder(indexfile, chr, startI, startJ)
+  message("Union index size (consensus): ", nrow(indexfile))
+
+} else {
+
+  message("Building union index from HiC-DC+ qvalue...")
+  extract_index <- function(f, fdr_cutoff) {
   dt <- fread(f, showProgress=FALSE)
-  dt[qvalue <= fdr_cutoff, .(chr=chrI, startI=startI, startJ=startJ)] 
-  } 
-index_list <- lapply(ss$path, extract_index, fdr_cutoff=opt$fdr)
-indexfile <- unique(rbindlist(index_list))
-setorder(indexfile, chr, startI, startJ)
+  dt[qvalue <= fdr_cutoff, .(chr=chrI, startI=startI, startJ=startJ)]
+    }
+  index_list <- lapply(ss$path, extract_index, fdr_cutoff=opt$fdr)
+  indexfile <- unique(rbindlist(index_list))
+  setorder(indexfile, chr, startI, startJ)
+  message("Union index size: ", nrow(indexfile))
+
+}
 
 fwrite(indexfile, filter_file, sep="\t", quote=FALSE)
-
-message("Union index size: ", nrow(indexfile))
 
 # ----------------------------
 # Step 2: Construct input_paths
@@ -84,7 +101,7 @@ input_paths <- split(ss$path, ss$condition)
 # Ensure each condition has >=2 replicates
 rep_counts <- table(ss$condition)
 if (any(rep_counts < 2)) {
-  stop("Each condition must have at least 2 replicates for hicdcdiff.")
+stop("Each condition must have at least 2 replicates for hicdcdiff.")
 }
 
 # ----------------------------
@@ -93,19 +110,16 @@ if (any(rep_counts < 2)) {
 message("Running hicdcdiff...")
 
 hicdcdiff(
-  input_paths = input_paths,
-  filter_file = filter_file,
-  output_path = opt$output_dir,
-  fitType = opt$fitType,
-  binsize = opt$binsize,
-  diagnostics = TRUE
+input_paths = input_paths,
+filter_file = filter_file,
+output_path = opt$output_dir,
+fitType = opt$fitType,
+binsize = opt$binsize,
+diagnostics = TRUE
 )
 
 writeLines(capture.output(sessionInfo()), file.path(opt$output_dir, "hicdcdiff_sessionInfo.txt"))
 message("Differential analysis completed.")
-
-
-
 
 
 ##Not used

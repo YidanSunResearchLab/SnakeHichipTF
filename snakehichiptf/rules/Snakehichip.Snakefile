@@ -59,6 +59,10 @@ PIPELINE_OUTPUTS = {
     "Hicdcplus": [
         "hicdcplus/{sample}/Hicdcplus.{sample}.significant_interactions.bedpe"
     ]
+    "Consensus": [                                             
+        "consensus/{sample}.consensus_interactions.bedpe"
+    ]
+
 }
 rule all:
     input:
@@ -86,6 +90,7 @@ rule all:
         # Differential analysis output if samples_comparison is provided
         #lambda wc: expand("hicdc_diff_output/{sampleA}_vs_{sampleB}_diff_interactions.bedpe",
         #                  sampleA=samples_comparison[0], sampleB=samples_comparison[1]) if samples_comparison else []
+
 
 onstart:
     shell("mkdir -p originalFastqs processedFastqs fastqc maps_feather maps logs benchmarks hichipper")
@@ -1100,8 +1105,51 @@ rule generate_frip_barplot:
 
 
 
+#############################################
+# --- Consensus interaction calling ---
+# Keep interactions supported by >= min_support callers (default: 2 of 4).
+# Outputs:
+#   consensus_interactions/{sample}.consensus_interactions.bedpe        <- final list
+#   consensus_interactions/{sample}.consensus_interactions.all_callers.bedpe  <- all + support counts
+#############################################
 
+rule consensus_interactions:
+    input:
+        # Each caller file is optional: if a caller was not run, pass an empty
+        # string and the Python script will skip it gracefully.
+        fithichip  = lambda wc: f"significant_interactions/FitHiChIP.{wc.sample}.interactions.peaktoall.significant.bedpe"
+                                 if pipeline in ["All", "Fithichip"] else [],
+        hicdcplus  = lambda wc: f"significant_interactions/Hicdcplus.{wc.sample}.significant_interactions.bedpe"
+                                 if pipeline in ["All", "Hicdcplus"] else [],
+        hichipper  = lambda wc: f"significant_interactions/Hichipper.{wc.sample}.significant.interactions.bedpe"
+                                 if pipeline in ["All", "Hichipper"] else [],
+        maps       = lambda wc: f"significant_interactions/Maps.{wc.sample}.{resolution}k.sig3Dinteractions.bedpe"
+                                 if pipeline in ["All", "Maps"] else [],
+    output:
+        consensus  = "consensus_interactions/{sample}.consensus_interactions.bedpe",
+    params:
+        binsize    = bin_size,
+        min_support= 2 # #config.get("consensus_min_support", 2),  # set in config.yaml
+    log:
+        "logs/consensus_interactions.{sample}.log"
+    benchmark:
+        "benchmarks/consensus_interactions.{sample}.txt"
+    conda:
+        "envs/basic.yaml"   # needs python + pandas (already in most envs)
+    shell:
+        """
+        mkdir -p consensus_interactions
 
+        python {script_dir}/../scripts/consensus_interactions.py \
+            {("--fithichip "  + input.fithichip  ) if input.fithichip  else ""} \
+            {("--hicdcplus "  + input.hicdcplus  ) if input.hicdcplus  else ""} \
+            {("--hichipper "  + input.hichipper  ) if input.hichipper  else ""} \
+            {("--maps "       + input.maps       ) if input.maps        else ""} \
+            --binsize     {params.binsize}      \
+            --min-support {params.min_support}  \
+            --out         {output.consensus}    \
+            > {log} 2>&1
+        """
 
 
 
